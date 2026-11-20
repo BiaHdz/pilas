@@ -1,0 +1,14 @@
+{
+  "name": "¡Pilas! · Equipo La China",
+  "short_name": "¡Pilas!",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#5B2C91",
+  "theme_color": "#5B2C91",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icon-512-maskable.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

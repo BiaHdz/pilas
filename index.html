@@ -13,18 +13,62 @@
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
 <link rel="icon" type="image/png" href="favicon.png">
 <link rel="manifest" href="manifest.webmanifest">
+<script src="https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.page.js" defer></script>
 <style>
   html, body { margin: 0; height: 100%; background: linear-gradient(135deg, #5B2C91, #E52A4E); overflow: hidden; }
+  #avisos { position: fixed; left: 12px; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); z-index: 5; display: none; align-items: center; gap: 10px;
+    background: #2A1747; color: #fff; border-radius: 18px; padding: 12px 14px; font: 600 14px/1.3 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; box-shadow: 0 12px 30px rgba(0,0,0,.35); }
+  #avisos span { flex: 1; }
+  #avisos button { border: 0; border-radius: 12px; padding: 10px 14px; font: inherit; font-weight: 700; }
+  #av_si { background: #fff; color: #5B2C91; }
+  #av_no { background: transparent; color: #D9CCEF; padding: 10px 6px; }
   iframe { position: fixed; inset: 0; width: 100%; height: 100%; border: 0; padding-top: env(safe-area-inset-top); box-sizing: border-box; background: transparent; }
 </style>
 </head>
 <body>
 <iframe id="app" title="¡Pilas! · Equipo La China" allow="camera; clipboard-write"></iframe>
+<div id="avisos"><span id="av_txt">🔔 Activa los avisos de ¡Pilas! en este teléfono</span><button id="av_si" onclick="activarAvisos()">Activar</button><button id="av_no" onclick="cierraAvisos()">Ahora no</button></div>
 <script>
   var EXEC = 'https://script.google.com/macros/s/AKfycbwCQd9Ix2xvKVft_jiAKGbGYFt_nU5UC1bqk50UeQclo75-u2Vzkn3a97NhrD2krKrj/exec';
   document.getElementById('app').src = EXEC + location.search;
   // Si entró con código de tarjeta, quitarlo de la dirección para que el ícono de inicio no lo guarde.
   if (location.search) history.replaceState(null, '', location.pathname);
+
+  // Avisos al celular. La app (dentro del marco) dice quién entró; aquí se pide el permiso, porque el teléfono solo lo acepta desde esta página.
+  var YO = '', OS = null;
+  window.OneSignalDeferred = window.OneSignalDeferred || [];
+  OneSignalDeferred.push(async function (OneSignal) {
+    try {
+      await OneSignal.init({ appId: '508490cf-0847-47d5-a097-c3137758bdaf', serviceWorkerPath: 'pilas/OneSignalSDKWorker.js', serviceWorkerParam: { scope: '/pilas/' },
+        notificationClickHandlerMatch: 'origin', notificationClickHandlerAction: 'focus' });
+      OneSignal.Notifications.setDefaultUrl('https://biahdz.github.io/pilas/');
+      OneSignal.Notifications.addEventListener('permissionChange', ponAvisos);
+      OS = OneSignal; ponAvisos();
+    } catch (e) { console.log('avisos', e); }
+  });
+  window.addEventListener('message', function (e) {
+    var d = e.data;
+    if (!d || d.pilas !== 1 || !/^https:\/\/[a-z0-9-]+\.googleusercontent\.com$/.test(e.origin)) return;
+    if (d.tipo === 'yo') YO = String(d.id || '');
+    if (d.tipo === 'salir') YO = '';
+    ponAvisos();
+  });
+  var ULT = null;
+  async function ponAvisos() {
+    var bar = document.getElementById('avisos');
+    if (!OS) return;
+    try {
+      if (ULT !== YO) { ULT = YO; if (YO) await OS.login(YO); else await OS.logout(); }
+      var puede = YO && OS.Notifications.isPushSupported(), ya = OS.Notifications.permission;
+      var bloqueado = window.Notification && Notification.permission === 'denied';
+      if (puede && ya && !OS.User.PushSubscription.optedIn) await OS.User.PushSubscription.optIn();
+      document.getElementById('av_txt').textContent = bloqueado ? '🔕 Los avisos están bloqueados. Actívalos en los ajustes del teléfono: Notificaciones → ¡Pilas!' : '🔔 Activa los avisos de ¡Pilas! en este teléfono';
+      document.getElementById('av_si').style.display = bloqueado ? 'none' : '';
+      bar.style.display = puede && !ya && !sessionStorage.getItem('avisos_no') ? 'flex' : 'none';
+    } catch (e) { console.log('avisos', e); }
+  }
+  function activarAvisos() { if (OS) OS.Notifications.requestPermission().then(ponAvisos, ponAvisos); }
+  function cierraAvisos() { try { sessionStorage.setItem('avisos_no', '1'); } catch (e) {} document.getElementById('avisos').style.display = 'none'; }
 </script>
 </body>
 </html>
